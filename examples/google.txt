@@ -1,0 +1,16 @@
+
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 google.com
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 22868
+;; flags: qr; QUERY: 0, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; ANSWER SECTION:
+google.com.		300	IN	A	142.250.183.174
+
+;; Query time: 384 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Tue Jan 28 14:33:45 IST 2025
+;; MSG SIZE  rcvd: 38
+

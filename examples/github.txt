@@ -1,0 +1,16 @@
+
+; <<>> DiG 9.10.6 <<>> @127.0.0.1 github.com
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 4661
+;; flags: qr; QUERY: 0, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; ANSWER SECTION:
+github.com.		60	IN	A	20.207.73.82
+
+;; Query time: 357 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Tue Jan 28 14:32:21 IST 2025
+;; MSG SIZE  rcvd: 38
+
