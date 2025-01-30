@@ -51,6 +51,25 @@ func getRootServers() []net.IP {
 	return rootservers
 }
 
+/*
+MESSAGES Format
+
+All communications inside of the domain protocol are carried in a single
+format called a message.  The top level format of message is divided
+into 5 sections (some of which are empty in certain cases) shown below:
+
+	+---------------------+
+	|        Header       |
+	+---------------------+
+	|       Question      | the question for the name server
+	+---------------------+
+	|        Answer       | RRs answering the question
+	+---------------------+
+	|      Authority      | RRs pointing toward an authority
+	+---------------------+
+	|      Additional     | RRs holding additional information
+	+---------------------+
+*/
 func dnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessage.Message, error) {
 	fmt.Printf("Questions %v \n", question)
 	for i := 0; i < 3; i++ {
@@ -62,6 +81,7 @@ func dnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessage.Messa
 		if err != nil {
 			return nil, err
 		}
+		// take it as dns query like if we already Authoritative we will simply return from here
 		if header.Authoritative {
 			return &dnsmessage.Message{
 				Header:  dnsmessage.Header{Response: true},
@@ -84,6 +104,11 @@ func dnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessage.Messa
 		for k, authority := range authorities {
 			if authority.Header.Type == dnsmessage.TypeNS {
 				// ==== confusing part ====
+				/*
+					-> The (*dnsmessage.NSResource) part is a type assertion.
+					-> It asserts that the Body field of authority is of type *dnsmessage.NSResource, which is a pointer to a dnsmessage.NSResource struct.
+					-> If this type assertion fails (i.e., Body is not of type *dnsmessage.NSResource), the program will panic unless handled safely.
+				*/
 				nameservers[k] = authority.Body.(*dnsmessage.NSResource).NS.String()
 
 			}
@@ -141,19 +166,40 @@ func outgoingDnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessa
 		return nil, nil, err
 	}
 	message := dnsmessage.Message{
+		// Header is a representation of a DNS message header.
 		Header: dnsmessage.Header{
 			ID:       uint16(randomNumber.Int64()),
 			Response: false,
 			OpCode:   dnsmessage.OpCode(0),
 		},
+		/*
+			Example:
+			question := dnsmessage.Question{
+					Name:  dnsmessage.MustNewName("www.google.com."),
+					Type:  dnsmessage.TypeNS,
+					Class: dnsmessage.ClassINET,
+			}
+		*/
+		// A Question is a DNS query.
 		Questions: []dnsmessage.Question{question},
 	}
+	// Pack packs a full Message.
 	buf, err := message.Pack()
 	if err != nil {
 		return nil, nil, err
 	}
 	var conn net.Conn
 	for _, server := range servers {
+		// Dial connects to the address on the named network.
+		// Examples:
+		//
+		//	Dial("tcp", "golang.org:http")
+		//	Dial("tcp", "192.0.2.1:http")
+		//	Dial("tcp", "198.51.100.1:80")
+		//	Dial("udp", "[2001:db8::1]:domain")
+		//	Dial("udp", "[fe80::1%lo0]:53") <-
+		//	Dial("tcp", ":80")
+		//
 		conn, err = net.Dial("udp", server.String()+":53")
 		if err == nil {
 			break
@@ -162,19 +208,26 @@ func outgoingDnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessa
 	if conn == nil {
 		return nil, nil, fmt.Errorf("failed to make connection to server %s", err)
 	}
+	// Write "writes" data to the connection.
+	// Write can be made to time out and return an error after a fixed
+	// time limit; see SetDeadline and SetWriteDeadline.
 	_, err = conn.Write(buf)
 	if err != nil {
 		return nil, nil, err
 	}
-	answer := make([]byte, 512)
+	// UDP messages    512 octets or less
+	answer := make([]byte, 512) // size limit of udp - message packet is 512
+	// NewReader returns a new [Reader] whose buffer has the default size.
 	n, err := bufio.NewReader(conn).Read(answer)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	conn.Close()
+	conn.Close() // no need of connection any more
 
+	// A Parser allows incrementally parsing a DNS message.
 	var p dnsmessage.Parser
+	//  Start parses the header and enables the parsing of Questions.
 	header, err := p.Start(answer[:n])
 	if err != nil {
 		return nil, nil, fmt.Errorf("parser start error: %s", err)
@@ -186,6 +239,7 @@ func outgoingDnsQuery(servers []net.IP, question dnsmessage.Question) (*dnsmessa
 	if len(questions) != len(message.Questions) {
 		return nil, nil, fmt.Errorf("answer packet doesn't have the same amount of questions")
 	}
+	// SkipAllQuestions skips all Questions.
 	err = p.SkipAllQuestions()
 	if err != nil {
 		return nil, nil, err
